@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <title>Resume Checker</title>
+
+</head>
+<body>
+    <div class="container">
+        <h1>Resume Checker</h1>
+        <a href="recruiter.html" class="mode_button">Change to Recruiter Mode</a>
+
+
+        <div class="input-section">
+            <label for="resume">Paste the resume here:</label>
+            <textarea id="resume" placeholder="Paste your resume text..."></textarea>
+        </div>
+
+        <div class="input-section">
+            <label for="description">Paste the job description here:</label>
+            <textarea id="description" placeholder="Paste the job description text..."></textarea>
+        </div>
+
+
+        <button id="submitBtn" onclick="checkResume()">Check Resume</button>
+
+        <div id="loading" class="loading" style="display: none;">Analyzing your resume...</div>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+
+        function getScoreColor(score) {
+            if (score >= 85) return 'very-green';
+            if (score >= 70) return 'green';
+            if (score >= 55) return 'yellow';
+            if (score >= 40) return 'orange';
+            return 'red';
+        }
+
+        async function checkResume() {
+            const resumeText = document.getElementById('resume').value.trim();
+            const descriptionText = document.getElementById('description').value.trim();
+            const resultsDiv = document.getElementById('results');
+            const loadingDiv = document.getElementById('loading');
+            const submitBtn = document.getElementById('submitBtn');
+
+            // Validation
+            if (!resumeText) {
+                resultsDiv.innerHTML = '<div class="error">Please paste your resume first.</div>';
+                return;
+            }
+
+            if (!descriptionText) {
+                resultsDiv.innerHTML = '<div class="error">Please paste a job description.</div>';
+                return;
+            }
+
+            // Show loading, disable button
+            loadingDiv.style.display = 'block';
+            resultsDiv.innerHTML = '';
+            submitBtn.disabled = true;
+
+            try {
+                const response = await fetch(`${API_URL}/analyze_applicant`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        resume: resumeText,
+                        description: descriptionText
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                // Get appropriate color class based on score
+                const scoreColorClass = getScoreColor(data.score);
+
+                // Display results
+                resultsDiv.innerHTML = `
+                    <div class="results">
+                        <h2>Analysis Results</h2>
+                        <div class="score-box ${scoreColorClass}">
+                            <span class="score-label">Score</span>
+                            <span class="score-value">${data.score}/100</span>
+                        </div>
+                        <h3>Judgement:</h3>
+                        <p>${data.judgement}</p>
+                        <h3>Explanation:</h3>
+                        <ul>
+                            ${data.suggestions.map(s => `<li>${s}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            } finally {
+                loadingDiv.style.display = 'none';
+                submitBtn.disabled = false;
+            }
+        }
+
+        // Allow Enter key to submit
+        document.getElementById('resume').addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'Enter') {
+                checkResume();
+            }
+        });
+
+        document.getElementById('description').addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'Enter') {
+                checkResume();
+            }
+        });
+    </script>
+</body>
+</html>
